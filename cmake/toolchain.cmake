@@ -5,6 +5,7 @@ set(CMAKE_SYSTEM_PROCESSOR arm)
 set(triple arm-none-eabi)
 set(CMAKE_C_COMPILER ${triple}-gcc)
 set(CMAKE_CXX_COMPILER ${triple}-g++)
+set(CMAKE_C_OBJCOPY ${triple}-objcopy)
 
 # test the compiler can compile a static library rather than an executable
 # an executable build will fail as no syscalls are implemented
