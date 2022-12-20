@@ -23,47 +23,322 @@ static uint32_t qtff_ntohl(uint32_t n) {
 
 // Read a single 16-bit unsigned integer from the current offset in the file.
 // Error handling and EOF detection are done by ferror and feof respectively.
-static uint16_t qtff_read_u16(FILE *fd) {
-  uint16_t no;
-  fread(&no, 2, 1, fd);
-  return qtff_ntohs(no);
+static QTFFError qtff_read_16(FILE *fd, void *out) {
+  uint16_t n;
+  fread(&n, 2, 1, fd);
+  if (ferror(fd)) {
+    return QTFFErrorIOError;
+  }
+  if (feof(fd)) {
+    return QTFFErrorEOF;
+  }
+  *(uint16_t *)out = qtff_ntohs(n);
+  return QTFFErrorNone;
 }
 
 // Read a single 32-bit unsigned integer from the current offset in the file.
 // Error handling and EOF detection are done by ferror and feof respectively.
-static uint32_t qtff_read_u32(FILE *fd) {
-  uint32_t no;
-  fread(&no, 4, 1, fd);
-  return qtff_ntohl(no);
+static QTFFError qtff_read_32(FILE *fd, void *out) {
+  uint32_t n;
+  fread(&n, 4, 1, fd);
+  if (ferror(fd)) {
+    return QTFFErrorIOError;
+  }
+  if (feof(fd)) {
+    return QTFFErrorEOF;
+  }
+  *(uint32_t *)out = qtff_ntohl(n);
+  return QTFFErrorNone;
 }
 
-// @TODO: make this output something
-// @TODO: handle special sizes:
-//  0 => atom continues until end of file
-//  1 => atoms length is given in 64-bit extended size field instead
+QTFFError qtff_read_atom_header(FILE *fd, QTFFAtomHeader *out) {
+  QTFFError err;
+  QTFFAtomHeader atom;
+  atom.offset = ftell(fd);
+  if ((err = qtff_read_32(fd, &atom.size))) {
+    return err;
+  }
+  // @TODO: use qtff_read32 instead
+  fread(&atom.type, 4, 1, fd);
+
+  if (feof(fd)) {
+    return QTFFErrorEOF;
+  }
+  if (ferror(fd)) {
+    return QTFFErrorIOError;
+  }
+
+  *out = atom;
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_file_type_compatibility_atom(
+    FILE *fd, QTFFFileTypeCompatibilityAtom *out) {
+  QTFFFileTypeCompatibilityAtom atom;
+  QTFFError err;
+
+  // read header
+  if ((err = qtff_read_atom_header(fd, &atom.header))) {
+    return err;
+  }
+
+  // read major brand
+  if ((err = qtff_read_32(fd, &atom.major_brand))) {
+    return err;
+  }
+
+  // read minor version
+  if ((err = qtff_read_32(fd, &atom.minor_version))) {
+    return err;
+  }
+
+  // read compatible brands
+  atom.compatible_brands_count = (atom.header.size - 16) / 4;
+  if (atom.compatible_brands_count > QTFF_MAX_COMPATIBLE_BRANDS) {
+    return QTFFErrorTooManyAtoms;
+  }
+  // @TODO: use qtff_read32 instead
+  fread(atom.compatible_brands, 4, atom.compatible_brands_count, fd);
+
+  *out = atom;
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_movie_data_atom(FILE *fd, QTFFMovieDataAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, (QTFFAtomHeader *)out))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 8, SEEK_CUR);
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_free_atom(FILE *fd, QTFFFreeAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, (QTFFAtomHeader *)out))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 8, SEEK_CUR);
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_skip_atom(FILE *fd, QTFFSkipAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, (QTFFAtomHeader *)out))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 8, SEEK_CUR);
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_wide_atom(FILE *fd, QTFFWideAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, (QTFFAtomHeader *)out))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 8, SEEK_CUR);
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_preview_atom(FILE *fd, QTFFPreviewAtom *out) {
+  QTFFError err;
+
+  // read header
+  if ((err = qtff_read_atom_header(fd, &out->header))) {
+    return err;
+  }
+
+  // read modification time
+  if ((err = qtff_read_32(fd, &out->modification_time))) {
+    return err;
+  }
+
+  // read version number
+  if ((err = qtff_read_16(fd, &out->version))) {
+    return err;
+  }
+
+  // read atom type
+  if ((err = qtff_read_32(fd, &out->atom_type))) {
+    return err;
+  }
+
+  // read atom index
+  if ((err = qtff_read_16(fd, &out->atom_index))) {
+    return err;
+  }
+
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_movie_header_atom(FILE *fd, QTFFMovieHeaderAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, &out->header))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 8, SEEK_CUR);
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_clipping_atom(FILE *fd, QTFFClippingAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, &out->header))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 8, SEEK_CUR);
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_color_table_atom(FILE *fd, QTFFColorTableAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, &out->header))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 8, SEEK_CUR);
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_user_data_atom(FILE *fd, QTFFUserDataAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, &out->header))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 8, SEEK_CUR);
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_track_atom(FILE *fd, QTFFTrackAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, &out->header))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 8, SEEK_CUR);
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_movie_atom(FILE *fd, QTFFMovieAtom *out) {
+  QTFFError err;
+  QTFFAtomHeader atom;
+  QTFFMovieAtom movie = {0};
+
+  // read header
+  if ((err = qtff_read_atom_header(fd, &movie.header))) {
+    return err;
+  }
+
+  // read child atoms
+  while (!(err = qtff_read_atom_header(fd, &atom))) {
+    fseek(fd, -8, SEEK_CUR);
+
+    printf("parsing %c%c%c%c atom with length %u\n", atom.type[0], atom.type[1],
+           atom.type[2], atom.type[3], atom.size);
+
+    switch (QTFF_ATOM_ID(atom.type)) {
+      case QTFF_ATOM_ID("mvhd"):
+        if (movie.movie_header.header.size) {
+          return QTFFErrorTooManyAtoms;
+        }
+        QTFFMovieHeaderAtom movie_header;
+        if ((err = qtff_read_movie_header_atom(fd, &movie_header))) {
+          return err;
+        }
+        movie.movie_header = movie_header;
+        break;
+
+      case QTFF_ATOM_ID("clip"):
+        if (movie.clipping.header.size) {
+          return QTFFErrorTooManyAtoms;
+        }
+        QTFFClippingAtom clipping;
+        if ((err = qtff_read_clipping_atom(fd, &clipping))) {
+          return err;
+        }
+        movie.clipping = clipping;
+        break;
+
+      case QTFF_ATOM_ID("trak"):
+        if (movie.track_count >= QTFF_MAX_TRACK_ATOMS) {
+          return QTFFErrorTooManyAtoms;
+        }
+        QTFFTrackAtom track;
+        if ((err = qtff_read_track_atom(fd, &track))) {
+          return err;
+        }
+        movie.track[movie.track_count] = track;
+        movie.track_count++;
+        break;
+
+      case QTFF_ATOM_ID("udta"):
+        if (movie.user_data.header.size) {
+          return QTFFErrorTooManyAtoms;
+        }
+        QTFFUserDataAtom user_data;
+        if ((err = qtff_read_user_data_atom(fd, &user_data))) {
+          return err;
+        }
+        movie.user_data = user_data;
+        break;
+
+      case QTFF_ATOM_ID("ctab"):
+        if (movie.color_table.header.size) {
+          return QTFFErrorTooManyAtoms;
+        }
+        QTFFColorTableAtom color_table;
+        if ((err = qtff_read_color_table_atom(fd, &color_table))) {
+          return err;
+        }
+        movie.color_table = color_table;
+        break;
+
+      default:
+        // unrecognised atom type - skip as per spec
+        fseek(fd, atom.size, SEEK_CUR);
+        break;
+    }
+  }
+  if (err != QTFFErrorEOF) {
+    return err;
+  }
+
+  *out = movie;
+  return QTFFErrorNone;
+}
+
 QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
   QTFFMovieFile movie = {0};
-  QTFFError err = QTFFErrorNone;
+  QTFFError err;
   QTFFAtomHeader atom;
   rewind(fd);
 
   while (!(err = qtff_read_atom_header(fd, &atom))) {
+    fseek(fd, -8, SEEK_CUR);
+
     switch (QTFF_ATOM_ID(atom.type)) {
       case QTFF_ATOM_ID("ftyp"):
         if (movie.file_type_compatibility_count >=
             QTFF_MAX_FILE_TYPE_COMPATIBILITY_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
+        QTFFFileTypeCompatibilityAtom file_type_compatibility_atom;
+        if ((err = qtff_read_file_type_compatibility_atom(
+                 fd, &file_type_compatibility_atom))) {
+          return err;
+        };
         movie.file_type_compatibility[movie.file_type_compatibility_count] =
-            *((QTFFFileTypeCompatibilityAtom *)&atom);
+            file_type_compatibility_atom;
         movie.file_type_compatibility_count++;
+
         break;
 
       case QTFF_ATOM_ID("moov"):
         if (movie.movie_count >= QTFF_MAX_MOVIE_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
-        movie.movie[movie.movie_count] = *((QTFFMovieAtom *)&atom);
+        QTFFMovieAtom movie_atom;
+        if ((err = qtff_read_movie_atom(fd, &movie_atom))) {
+          return err;
+        }
+        movie.movie[movie.movie_count] = movie_atom;
         movie.movie_count++;
         break;
 
@@ -71,8 +346,11 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
         if (movie.movie_data_count >= QTFF_MAX_MOVIE_DATA_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
-        movie.movie_data[movie.movie_data_count] =
-            *((QTFFMovieDataAtom *)&atom);
+        QTFFMovieDataAtom movie_data_atom;
+        if ((err = qtff_read_movie_data_atom(fd, &movie_data_atom))) {
+          return err;
+        }
+        movie.movie_data[movie.movie_count] = movie_data_atom;
         movie.movie_data_count++;
         break;
 
@@ -80,7 +358,11 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
         if (movie.free_count >= QTFF_MAX_FREE_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
-        movie.free[movie.free_count] = *((QTFFFreeAtom *)&atom);
+        QTFFFreeAtom free_atom;
+        if ((err = qtff_read_free_atom(fd, &free_atom))) {
+          return err;
+        }
+        movie.free[movie.movie_count] = free_atom;
         movie.free_count++;
         break;
 
@@ -88,7 +370,11 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
         if (movie.skip_count >= QTFF_MAX_SKIP_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
-        movie.skip[movie.skip_count] = *((QTFFSkipAtom *)&atom);
+        QTFFSkipAtom skip_atom;
+        if ((err = qtff_read_skip_atom(fd, &skip_atom))) {
+          return err;
+        }
+        movie.skip[movie.movie_count] = skip_atom;
         movie.skip_count++;
         break;
 
@@ -96,21 +382,31 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
         if (movie.wide_count >= QTFF_MAX_WIDE_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
-        movie.wide[movie.wide_count] = *((QTFFWideAtom *)&atom);
+        QTFFWideAtom wide_atom;
+        if ((err = qtff_read_wide_atom(fd, &wide_atom))) {
+          return err;
+        }
+        movie.wide[movie.movie_count] = wide_atom;
         movie.wide_count++;
         break;
 
       case QTFF_ATOM_ID("pnot"):
-        printf("%c%c%c%c is a basic atom type.\n", atom.type[0], atom.type[1],
-               atom.type[2], atom.type[3]);
+        if (movie.preview_count >= QTFF_MAX_WIDE_ATOMS) {
+          return QTFFErrorTooManyAtoms;
+        }
+        QTFFPreviewAtom preview_atom;
+        if ((err = qtff_read_preview_atom(fd, &preview_atom))) {
+          return err;
+        }
+        movie.preview[movie.preview_count] = preview_atom;
+        movie.preview_count++;
         break;
+
       default:
-        fprintf(stderr, "%c%c%c%c (%x) is not a basic atom type.\n",
-                atom.type[0], atom.type[1], atom.type[2], atom.type[3],
-                *((uint32_t *)atom.type));
-        return QTFFErrorNotBasicAtomType;
+        // unsupported basic type - skip as per spec
+        fseek(fd, atom.size, SEEK_CUR);
+        break;
     }
-    fseek(fd, atom.size, SEEK_CUR);
   }
   if (err != QTFFErrorEOF) {
     return err;
@@ -124,21 +420,3 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
 /*   qtff_write_file_type_compatibility(fd, &in->file_type_compatibility); */
 /*   qtff_write_movie(fd, &in->movie); */
 /* } */
-
-QTFFError qtff_read_atom_header(FILE *fd, QTFFAtomHeader *out) {
-  QTFFAtomHeader atom;
-  atom.offset = ftell(fd);
-  atom.size = qtff_read_u32(fd);
-  fread(&atom.type, 4, 1, fd);
-
-  if (feof(fd)) {
-    return QTFFErrorEOF;
-  }
-  if (ferror(fd)) {
-    return QTFFErrorIOError;
-  }
-
-  fseek(fd, -8, SEEK_CUR);
-  *out = atom;
-  return QTFFErrorNone;
-}

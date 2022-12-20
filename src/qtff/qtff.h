@@ -11,6 +11,18 @@
 
 #define DocLink(url) (<a href = "url"> url</ a>)
 
+///
+/// @brief A generic error in the QTFF library.
+///
+typedef enum {
+  QTFFErrorNone = 0,
+  QTFFErrorEOF,
+  QTFFErrorIOError,
+  QTFFErrorAtomTooLong,
+  QTFFErrorNotBasicAtomType,
+  QTFFErrorTooManyAtoms,
+} QTFFError;
+
 typedef uint32_t QTFFAtomSize;
 
 // @TODO: static assert sizeof(QTFFAtomType) == 32
@@ -40,9 +52,20 @@ typedef struct {
 } QTFFAtomHeader;
 
 ///
+/// @brief Read the header of an atom
+///
+/// The current file offset must be at the start of the atom.
+///
+/// @param [in] fd    The file descriptor
+/// @param [out] out  Output
+/// @return           Whether or not an atom was read successfully
+///
+QTFFError qtff_read_atom_header(FILE *fd, QTFFAtomHeader *out);
+
+///
 /// @brief The maximum number of compatible brands .
 ///
-#define QT_MAX_COMPATIBLE_BRANDS 4
+#define QTFF_MAX_COMPATIBLE_BRANDS 4
 
 ///
 /// @brief QuickTime identifier for a file format.
@@ -58,12 +81,31 @@ typedef struct {
   uint32_t major_brand;
   uint32_t minor_version;
   size_t compatible_brands_count;
-  QTFileFormat compatible_brands[QT_MAX_COMPATIBLE_BRANDS];
+  QTFileFormat compatible_brands[QTFF_MAX_COMPATIBLE_BRANDS];
 } QTFFFileTypeCompatibilityAtom;
+
+///
+/// @brief Read a file type compatibility atom
+///
+/// @param [in] fd    The file descriptor
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_file_type_compatibility_atom(
+    FILE *fd, QTFFFileTypeCompatibilityAtom *out);
 
 typedef struct {
   QTFFAtomHeader header;
 } QTFFMovieDataAtom;
+
+///
+/// @brief Read a movie data atom
+///
+/// @param [in] fd    The file descriptor
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_movie_data_atom(FILE *fd, QTFFMovieDataAtom *out);
 
 ///
 /// @brief Free (unused) space atom
@@ -74,6 +116,15 @@ typedef struct {
 } QTFFFreeAtom;
 
 ///
+/// @brief Read a free atom
+///
+/// @param [in] fd    The file descriptor
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_free_atom(FILE *fd, QTFFFreeAtom *out);
+
+///
 /// @brief Skip (unused) space atom
 /// DocLink(https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-55464)
 ///
@@ -82,12 +133,30 @@ typedef struct {
 } QTFFSkipAtom;
 
 ///
+/// @brief Read a skip atom
+///
+/// @param [in] fd    The file descriptor
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_skip_atom(FILE *fd, QTFFSkipAtom *out);
+
+///
 /// @brief Wide (reserved) space atom
 /// DocLink(https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-55464)
 ///
 typedef struct {
   QTFFAtomHeader header;
 } QTFFWideAtom;
+
+///
+/// @brief Read a wide atom
+///
+/// @param [in] fd    The file descriptor
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_wide_atom(FILE *fd, QTFFWideAtom *out);
 
 ///
 /// @brief Preview atom
@@ -102,22 +171,18 @@ typedef struct {
 } QTFFPreviewAtom;
 
 ///
-/// @brief Maximum number of MovieAtom child atoms.
+/// @brief Read a preview atom
 ///
-#define QT_MAX_MOVIE_ATOM_CHILDREN 16
-
+/// @param [in] fd    The file descriptor
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
 ///
-/// @brief Movie atom.
-///
-typedef struct {
-  QTFFAtomHeader header;
-  size_t children_count;
-  QTFFAtomHeader children[QT_MAX_MOVIE_ATOM_CHILDREN];
-} QTFFMovieAtom;
+QTFFError qtff_read_preview_atom(FILE *fd, QTFFPreviewAtom *out);
 
 ///
 /// @brief Movie header atom.
 ///
+// @TODO: assert sizeof(MovieHeaderAtom) == 108
 typedef struct {
   QTFFAtomHeader header;
   char version;
@@ -139,12 +204,46 @@ typedef struct {
   QTTrackID next_track_id;
 } QTFFMovieHeaderAtom;
 
-// @TODO: assert sizeof(MovieHeaderAtom) == 108
+///
+/// @brief Read a movie header atom
+///
+/// @param [in] fd    The file descriptor to read from
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_movie_header_atom(FILE *fd, QTFFMovieHeaderAtom *out);
+
+///
+/// @brief Clipping region atom
+///
+// @TODO: clipping data field (variable size)
+typedef struct {
+  QTFFAtomHeader header;
+  uint16_t region_size;
+  uint64_t region_boundary_box;
+} QTFFClippingRegionAtom;
+
+///
+/// @brief Clipping atom
+///
+typedef struct {
+  QTFFAtomHeader header;
+  QTFFClippingRegionAtom clipping_region;
+} QTFFClippingAtom;
+
+///
+/// @brief Read a clipping atom
+///
+/// @param [in] fd    The file descriptor to read from
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_clipping_atom(FILE *fd, QTFFClippingAtom *out);
 
 ///
 /// @brief The maximum number of entries in the color table
 ///
-#define QT_MAX_COLOR_TABLE_SIZE
+#define QTFF_MAX_COLOR_TABLE_SIZE 16
 
 ///
 /// @brief Color table atom
@@ -152,7 +251,92 @@ typedef struct {
 typedef struct {
   QTFFAtomHeader header;
   uint32_t color_table_seed;
-} ColorTableAtom;
+  uint16_t color_table_flags;
+  uint16_t color_table_size;
+  uint16_t color_array[QTFF_MAX_COLOR_TABLE_SIZE][4];
+} QTFFColorTableAtom;
+
+///
+/// @brief Read a color table atom
+///
+/// @param [in] fd    The file descriptor to read from
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_color_table_atom(FILE *fd, QTFFColorTableAtom *out);
+
+///
+/// @brief The maximum number of entries in the user data list
+///
+#define QTFF_MAX_USER_DATA_ITEMS 16
+
+///
+/// @brief User data atom
+///
+typedef struct {
+  QTFFAtomHeader header;
+  QTFFAtomHeader user_data_list[QTFF_MAX_USER_DATA_ITEMS];
+} QTFFUserDataAtom;
+
+///
+/// @brief Read a user data atom
+///
+/// @param [in] fd    The file descriptor to read from
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_user_data_atom(FILE *fd, QTFFUserDataAtom *out);
+
+typedef struct {
+  QTFFAtomHeader header;
+  /* QTFFTrackProfileAtom track_profile; */
+  /* QTFFTrackHeaderAtom track_header; */
+  /* QTFFTrackApertureModeDimensionsAtom track_aperture_mode_dimensions; */
+  /* QTFFClippingAtom clipping; */
+  /* QTFFTrackMatteAtom track_matte; */
+  /* QTFFEditAtom edit; */
+  /* QTFFTrackReferenceAtom track_reference; */
+  /* QTFFTrackExcludeFromAutoselectionAtom track_exclude_from_autoselection; */
+  /* QTFFTrackLoadSettingsAtom track_load_settings; */
+  /* QTFFMediaAtom media; */
+  /* QTFFUserDataAtom user_data; */
+} QTFFTrackAtom;
+
+///
+/// @brief Read a track atom
+///
+/// @param [in] fd    The file descriptor to read from
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_track_atom(FILE *fd, QTFFTrackAtom *out);
+
+///
+/// @brief The maximum number of track atoms in a movie atom
+///
+#define QTFF_MAX_TRACK_ATOMS 4
+
+///
+/// @brief Movie atom.
+///
+typedef struct {
+  QTFFAtomHeader header;
+  QTFFMovieHeaderAtom movie_header;
+  QTFFClippingAtom clipping;
+  QTFFColorTableAtom color_table;
+  QTFFUserDataAtom user_data;
+  size_t track_count;
+  QTFFTrackAtom track[QTFF_MAX_TRACK_ATOMS];
+} QTFFMovieAtom;
+
+///
+/// @brief Read a movie atom
+///
+/// @param [in] fd    The file descriptor
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_movie_atom(FILE *fd, QTFFMovieAtom *out);
 
 #define QTFF_MAX_FILE_TYPE_COMPATIBILITY_ATOMS 1
 #define QTFF_MAX_MOVIE_ATOMS 1
@@ -187,21 +371,9 @@ typedef struct {
 } QTFFMovieFile;
 
 ///
-/// @brief A generic error in the QTFF library.
-///
-typedef enum {
-  QTFFErrorNone = 0,
-  QTFFErrorEOF,
-  QTFFErrorIOError,
-  QTFFErrorAtomTooLong,
-  QTFFErrorNotBasicAtomType,
-  QTFFErrorTooManyAtoms,
-} QTFFError;
-
-///
 /// @brief Read a QuickTime movie file
 ///
-/// @param [in] fd    The file descriptor
+/// @param [in] fd    The file descriptor to read from
 /// @param [out] out  The parsed file
 /// @return           Whether or not the file was read successfully
 ///
@@ -210,21 +382,10 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out);
 ///
 /// @brief Write a QuickTime movie file
 ///
-/// @param [in] fd    The file descriptor
+/// @param [in] fd    The file descriptor to write to
 /// @param [in] in    The file
 /// @return           Whether or not the file was written successfully
 ///
 QTFFError qtff_write_movie_file(FILE *fd, QTFFMovieFile *in);
-
-///
-/// @brief Read the header of an atom
-///
-/// The current file offset must be at the start of the atom.
-///
-/// @param [in] fd    The file descriptor
-/// @param [out] out  Output
-/// @return           Whether or not an atom was read successfully
-///
-QTFFError qtff_read_atom_header(FILE *fd, QTFFAtomHeader *out);
 
 #endif  // QTFF_H_

@@ -16,7 +16,7 @@ class QTFFTest : public ::testing::Test {
   void TearDown() override { fclose(fd); }
 };
 
-TEST_F(QTFFTest, TopAtoms) {
+TEST_F(QTFFTest, MovieFile) {
   QTFFMovieFile movie_file;
   const QTFFError err = qtff_read_movie_file(fd, &movie_file);
   ASSERT_EQ(err, QTFFErrorNone) << "Error parsing movie file";
@@ -42,4 +42,55 @@ TEST_F(QTFFTest, TopAtoms) {
   ASSERT_EQ(movie_file.wide[0].header.size, 8);
 
   ASSERT_EQ(movie_file.preview_count, 0);
+}
+
+TEST_F(QTFFTest, FileTypeCompatibilityAtom) {
+  QTFFFileTypeCompatibilityAtom file_type_compatibility_atom;
+  fseek(fd, 0, SEEK_SET);
+  const QTFFError err =
+      qtff_read_file_type_compatibility_atom(fd, &file_type_compatibility_atom);
+  ASSERT_EQ(err, QTFFErrorNone);
+
+  ASSERT_EQ(file_type_compatibility_atom.major_brand, QTFF_ATOM_ID("qt  "));
+  ASSERT_EQ(file_type_compatibility_atom.minor_version, 0x00000200);
+  ASSERT_EQ(file_type_compatibility_atom.compatible_brands_count, 1);
+  ASSERT_EQ(QTFF_ATOM_ID(file_type_compatibility_atom.compatible_brands[0]),
+            QTFF_ATOM_ID("qt  "));
+}
+
+TEST_F(QTFFTest, MovieDataAtom) {
+  QTFFMovieDataAtom movie_data_atom;
+  fseek(fd, 28, SEEK_SET);
+  const QTFFError err = qtff_read_movie_data_atom(fd, &movie_data_atom);
+  ASSERT_EQ(err, QTFFErrorNone);
+
+  ASSERT_EQ(QTFF_ATOM_ID(movie_data_atom.header.type), QTFF_ATOM_ID("mdat"));
+  ASSERT_EQ(movie_data_atom.header.size, 28302);
+}
+
+TEST_F(QTFFTest, WideAtom) {
+  QTFFWideAtom wide_atom;
+  fseek(fd, 20, SEEK_SET);
+  const QTFFError err = qtff_read_wide_atom(fd, &wide_atom);
+  ASSERT_EQ(err, QTFFErrorNone);
+
+  ASSERT_EQ(QTFF_ATOM_ID(wide_atom.header.type), QTFF_ATOM_ID("wide"));
+  ASSERT_EQ(wide_atom.header.size, 8);
+}
+
+TEST_F(QTFFTest, MovieAtom) {
+  QTFFMovieAtom movie_atom;
+  fseek(fd, 28330, SEEK_SET);
+  const QTFFError err = qtff_read_movie_atom(fd, &movie_atom);
+  ASSERT_EQ(err, QTFFErrorNone);
+
+  ASSERT_EQ(movie_atom.movie_header.header.offset, 28338);
+  ASSERT_EQ(movie_atom.movie_header.header.size, 108);
+
+  ASSERT_EQ(movie_atom.track_count, 1);
+  ASSERT_EQ(movie_atom.track[0].header.offset, 28446);
+  ASSERT_EQ(movie_atom.track[0].header.size, 557);
+
+  ASSERT_EQ(movie_atom.user_data.header.offset, 29003);
+  ASSERT_EQ(movie_atom.user_data.header.size, 33);
 }
