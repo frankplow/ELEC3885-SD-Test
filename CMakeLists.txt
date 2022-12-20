@@ -1,30 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
-set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchain.cmake)
+set(CMAKE_TOOLCHAIN_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/arm-none-eabi.cmake CACHE STRING "")
 
-project(ELEC3885 C ASM)
+project(ELEC3885 C CXX ASM)
 
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -T ${CMAKE_CURRENT_SOURCE_DIR}/STM32F429ZITx_FLASH.ld")
-
-# -mcpu=cortex-m4 is self-explanatory
-# -mfpu=-fpv4-sp-d16 specifies the properties of the FPU (VFPv4 instructions, single-precision, 16 double-precision registers)
-# -mfloat-abi=hard allows the generation of floating-point instructions
-# --specs=nosys.specs provides dummy implementations for syscalls
-# --specs=nano.specs selects the nano version of newlib
 add_definitions(-DSTM32F429xx)
-add_compile_options(
-    "-mcpu=cortex-m4"
-    "-mfpu=fpv4-sp-d16"
-    "-mfloat-abi=hard"
-    "--specs=nosys.specs"
-    "--specs=nano.specs"
-)
-add_link_options(
-    "-mcpu=cortex-m4"
-    "-mfpu=fpv4-sp-d16"
-    "-mfloat-abi=hard"
-    "--specs=nosys.specs"
-    "--specs=nano.specs"
-)
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
@@ -36,14 +15,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(stm32cube)
 
+# CMSIS Core
 add_library(CMSIS_Core INTERFACE)
 target_include_directories(CMSIS_Core INTERFACE ${stm32cube_SOURCE_DIR}/Drivers/CMSIS/Core/Include)
 
+# CMSIS Device
 set(cmsis_device_root ${stm32cube_SOURCE_DIR}/Drivers/CMSIS/Device/ST/STM32F4xx)
 add_library(CMSIS_Device INTERFACE)
 target_include_directories(CMSIS_Device INTERFACE ${cmsis_device_root}/Include)
 target_link_libraries(CMSIS_Device INTERFACE CMSIS_Core)
 
+# HAL
 set(hal_root ${stm32cube_SOURCE_DIR}/Drivers/STM32F4xx_HAL_Driver)
 add_library(
     HAL INTERFACE
@@ -143,6 +125,7 @@ target_sources(HAL INTERFACE
 target_include_directories(HAL INTERFACE ${hal_root}/Inc)
 target_link_libraries(HAL INTERFACE CMSIS_Device)
 
+# BSP
 set(bsp_root ${stm32cube_SOURCE_DIR}/Drivers/BSP/STM32F4xx_Nucleo_144)
 add_library(BSP INTERFACE)
 target_sources(BSP INTERFACE ${bsp_root}/stm32f4xx_nucleo_144.c)
@@ -150,3 +133,20 @@ target_include_directories(BSP INTERFACE ${bsp_root})
 target_link_libraries(BSP INTERFACE HAL)
 
 add_subdirectory(src)
+
+if(CMAKE_TESTING_ENABLED)
+    # GoogleTest
+    set(CMAKE_CXX_STANDARD 14)
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
+    enable_testing()
+    include(CTest)
+    include(GoogleTest)
+
+    add_subdirectory(tests)
+endif()
