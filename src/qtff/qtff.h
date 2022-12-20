@@ -1,15 +1,20 @@
 #ifndef QTFF_H_
 #define QTFF_H_
 
+/// @file qtff.h
+/// @author Frank Plowman <post@frankplowman.com>
+/// @brief QuickTime file format library main header file
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 
+/// @addtogroup QTFF
+/// @{
+
 #define QTFF_ATOM_ID(str) \
   ((str[0] << 24) + (str[1] << 16) + (str[2] << 8) + str[3])
-
-#define DocLink(url) (<a href = "url"> url</ a>)
 
 ///
 /// @brief A generic error in the QTFF library.
@@ -74,7 +79,8 @@ typedef char QTFileFormat[4];
 
 ///
 /// @brief File type compatibility atom
-/// DocLink(https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-CJBCBIFF)
+/// @see
+/// https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-CJBCBIFF
 ///
 typedef struct {
   QTFFAtomHeader header;
@@ -109,7 +115,8 @@ QTFFError qtff_read_movie_data_atom(FILE *fd, QTFFMovieDataAtom *out);
 
 ///
 /// @brief Free (unused) space atom
-/// DocLink(https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-55464)
+/// @see
+/// https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-55464
 ///
 typedef struct {
   QTFFAtomHeader header;
@@ -126,7 +133,8 @@ QTFFError qtff_read_free_atom(FILE *fd, QTFFFreeAtom *out);
 
 ///
 /// @brief Skip (unused) space atom
-/// DocLink(https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-55464)
+/// @see
+/// https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-55464
 ///
 typedef struct {
   QTFFAtomHeader header;
@@ -143,7 +151,8 @@ QTFFError qtff_read_skip_atom(FILE *fd, QTFFSkipAtom *out);
 
 ///
 /// @brief Wide (reserved) space atom
-/// DocLink(https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-55464)
+/// @see
+/// https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-55464
 ///
 typedef struct {
   QTFFAtomHeader header;
@@ -160,7 +169,8 @@ QTFFError qtff_read_wide_atom(FILE *fd, QTFFWideAtom *out);
 
 ///
 /// @brief Preview atom
-/// DocLink(https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-38240)
+/// @see
+/// https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap1/qtff1.html#//apple_ref/doc/uid/TP40000939-CH203-38240
 ///
 typedef struct {
   QTFFAtomHeader header;
@@ -346,6 +356,9 @@ QTFFError qtff_read_movie_atom(FILE *fd, QTFFMovieAtom *out);
 #define QTFF_MAX_WIDE_ATOMS 4
 #define QTFF_MAX_PREVIEW_ATOMS 1
 
+///
+/// @brief A QuickTime movie file
+///
 typedef struct {
   size_t file_type_compatibility_count;
   QTFFFileTypeCompatibilityAtom
@@ -388,4 +401,6 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out);
 ///
 QTFFError qtff_write_movie_file(FILE *fd, QTFFMovieFile *in);
 
+/// @}
+// group QTFF
 #endif  // QTFF_H_
