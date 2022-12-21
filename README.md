@@ -1,8 +1,6 @@
-## Build Instructions
-### Compiling for Target
-To configure the project compiling for the target, run:
+# Build Instructions
+To configure the project, run:
 ```bash
-$ rm -rf build
 $ cmake -S . -B build
 ```
 and to compile, run:
@@ -10,17 +8,9 @@ and to compile, run:
 $ cmake --build build
 ```
 
-### Testing
-Unit testing is disabled by default. When unit testing, cross compilation is disabled as the test is run on the host machine.
-
-To configure for unit testing, run:
+By default the project will be configured to cross-compile for the target and host-compiles the unit tests and documentation. This behaviour is controlled by the `ELEC3885_BUILD_TARGET`, `ELEC3885_BUILD_TESTS` and `ELEC3885_BUILD_DOCS` flags. For example, to configure to build the target executable and tests but not the documentation, run:
 ```bash
-$ rm -rf build
-$ cmake -DCMAKE_TESTING_ENABLED=1 -DCMAKE_TOOLCHAIN_FILE=cmake/host.cmake -S . -B build
-```
-and to compile and run the tests, run:
-```bash
-$ cmake --build build --target check
+$ cmake -DELEC3885_BUILD_DOCS=OFF -S . -B build
 ```
 
 ## Flashing
@@ -28,3 +18,4 @@ The CMake project contains a custom `flash` target which can be used to flash th
 ```bash
 $ cmake --build build --target flash
 ```
+once the project has been configured

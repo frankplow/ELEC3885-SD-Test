@@ -94,3 +94,38 @@ TEST_F(QTFFTest, MovieAtom) {
   ASSERT_EQ(movie_atom.user_data.header.offset, 29003);
   ASSERT_EQ(movie_atom.user_data.header.size, 33);
 }
+
+TEST_F(QTFFTest, MovieHeaderAtom) {
+  QTFFMovieHeaderAtom movie_header_atom;
+  fseek(fd, 28338, SEEK_SET);
+  const QTFFError err = qtff_read_movie_header_atom(fd, &movie_header_atom);
+  ASSERT_EQ(err, QTFFErrorNone);
+
+  ASSERT_EQ(movie_header_atom.version, 0);
+  ASSERT_EQ(movie_header_atom.flags[0], 0);
+  ASSERT_EQ(movie_header_atom.flags[1], 0);
+  ASSERT_EQ(movie_header_atom.flags[2], 0);
+  ASSERT_EQ(movie_header_atom.creation_time, 0);
+  ASSERT_EQ(movie_header_atom.modification_time, 0);
+  ASSERT_EQ(movie_header_atom.time_scale, 1000);
+  ASSERT_EQ(movie_header_atom.duration, 1167);
+  ASSERT_EQ(movie_header_atom.preferred_rate, 0x00010000);
+  ASSERT_EQ(movie_header_atom.preferred_volume, 0x0100);
+  ASSERT_EQ(movie_header_atom.preferred_volume, 0x0100);
+  // @TODO: test matrix_structure
+  // 00  00  00  00 a
+  // 00  00  00  00 b
+  // 00  00  00  01 u
+  // 00  00  00  00 c
+  // 00  00  00  00 d
+  // 00  00  00  00 v
+  // 00  00  00  01 x
+  // 00  00  00  00 y
+  // 00  00  00  00 w
+  ASSERT_EQ(movie_header_atom.preview_time, 0);
+  ASSERT_EQ(movie_header_atom.preview_duration, 0);
+  ASSERT_EQ(movie_header_atom.poster_time, 0);
+  ASSERT_EQ(movie_header_atom.selection_time, 0);
+  ASSERT_EQ(movie_header_atom.current_time, 0);
+  ASSERT_EQ(movie_header_atom.next_track_id, 2);
+}

@@ -46,7 +46,7 @@ typedef uint32_t QTTime;
 typedef uint32_t QTDuration;
 
 // @TODO: assert sizeof(QTMatrix) = 36
-typedef float QTMatrix[3][3];
+typedef float QTMatrix[9];
 
 typedef uint32_t QTTrackID;
 
@@ -234,6 +234,15 @@ typedef struct {
 } QTFFClippingRegionAtom;
 
 ///
+/// @brief Read a clipping region atom
+///
+/// @param [in] fd    The file descriptor to read from
+/// @param [out] out  The parsed atom
+/// @return           Whether or not the atom was read successfully
+///
+QTFFError qtff_read_clipping_region_atom(FILE *fd, QTFFClippingRegionAtom *out);
+
+///
 /// @brief Clipping atom
 ///
 typedef struct {
@@ -299,7 +308,6 @@ QTFFError qtff_read_user_data_atom(FILE *fd, QTFFUserDataAtom *out);
 
 typedef struct {
   QTFFAtomHeader header;
-  /* QTFFTrackProfileAtom track_profile; */
   /* QTFFTrackHeaderAtom track_header; */
   /* QTFFTrackApertureModeDimensionsAtom track_aperture_mode_dimensions; */
   /* QTFFClippingAtom clipping; */

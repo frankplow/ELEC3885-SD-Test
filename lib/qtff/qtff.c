@@ -8,17 +8,45 @@
 //
 // taken from:
 // https://stackoverflow.com/questions/2100331/macro-definition-to-determine-big-endian-or-little-endian-machine
-static uint16_t qtff_ntohs(uint16_t n) {
+static uint16_t qtff_ntoh_16(uint16_t n) {
   unsigned char *np = (unsigned char *)&n;
 
   return ((uint32_t)np[0] << 8) | (uint32_t)np[1];
 }
 
-static uint32_t qtff_ntohl(uint32_t n) {
+static uint32_t qtff_ntoh_24(uint32_t n) {
+  unsigned char *np = (unsigned char *)&n;
+
+  return ((uint32_t)np[0] << 16) | ((uint32_t)np[0] << 8) | (uint32_t)np[1];
+}
+
+static uint32_t qtff_ntoh_32(uint32_t n) {
   unsigned char *np = (unsigned char *)&n;
 
   return ((uint32_t)np[0] << 24) | ((uint32_t)np[1] << 16) |
          ((uint32_t)np[2] << 8) | (uint32_t)np[3];
+}
+
+static uint64_t qtff_ntoh_64(uint64_t n) {
+  unsigned char *np = (unsigned char *)&n;
+
+  return ((uint64_t)np[0] << 56) | ((uint64_t)np[1] << 48) |
+         ((uint64_t)np[2] << 40) | ((uint64_t)np[3] << 32) |
+         ((uint64_t)np[4] << 24) | ((uint64_t)np[5] << 16) |
+         ((uint64_t)np[6] << 8) | (uint64_t)np[7];
+}
+
+// Read a single 16-bit unsigned integer from the current offset in the file.
+// Error handling and EOF detection are done by ferror and feof respectively.
+static QTFFError qtff_read_8(FILE *fd, void *out) {
+  fread(&out, 1, 1, fd);
+  if (ferror(fd)) {
+    return QTFFErrorIOError;
+  }
+  if (feof(fd)) {
+    return QTFFErrorEOF;
+  }
+  return QTFFErrorNone;
 }
 
 // Read a single 16-bit unsigned integer from the current offset in the file.
@@ -32,7 +60,20 @@ static QTFFError qtff_read_16(FILE *fd, void *out) {
   if (feof(fd)) {
     return QTFFErrorEOF;
   }
-  *(uint16_t *)out = qtff_ntohs(n);
+  *(uint16_t *)out = qtff_ntoh_16(n);
+  return QTFFErrorNone;
+}
+
+static QTFFError qtff_read_24(FILE *fd, void *out) {
+  uint32_t n;
+  fread(&n, 3, 1, fd);
+  if (ferror(fd)) {
+    return QTFFErrorIOError;
+  }
+  if (feof(fd)) {
+    return QTFFErrorEOF;
+  }
+  *(uint32_t *)out = qtff_ntoh_24(n);
   return QTFFErrorNone;
 }
 
@@ -47,7 +88,20 @@ static QTFFError qtff_read_32(FILE *fd, void *out) {
   if (feof(fd)) {
     return QTFFErrorEOF;
   }
-  *(uint32_t *)out = qtff_ntohl(n);
+  *(uint32_t *)out = qtff_ntoh_32(n);
+  return QTFFErrorNone;
+}
+
+static QTFFError qtff_read_64(FILE *fd, void *out) {
+  uint64_t n;
+  fread(&n, 8, 1, fd);
+  if (ferror(fd)) {
+    return QTFFErrorIOError;
+  }
+  if (feof(fd)) {
+    return QTFFErrorEOF;
+  }
+  *(uint64_t *)out = qtff_ntoh_64(n);
   return QTFFErrorNone;
 }
 
@@ -173,16 +227,84 @@ QTFFError qtff_read_preview_atom(FILE *fd, QTFFPreviewAtom *out) {
 
 QTFFError qtff_read_movie_header_atom(FILE *fd, QTFFMovieHeaderAtom *out) {
   QTFFError err;
+
+  // read header
   if ((err = qtff_read_atom_header(fd, &out->header))) {
     return err;
   }
-  fseek(fd, out->header.size - 8, SEEK_CUR);
+  if ((err = qtff_read_8(fd, &out->version))) {
+    return err;
+  }
+  if ((err = qtff_read_24(fd, &out->flags))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->creation_time))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->modification_time))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->time_scale))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->duration))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->preferred_rate))) {
+    return err;
+  }
+  if ((err = qtff_read_16(fd, &out->preferred_volume))) {
+    return err;
+  }
+  fread(&out->_reserved, 1, 10, fd);
+  fread(&out->matrix_structure, 36, 1, fd);
+  if ((err = qtff_read_32(fd, &out->preview_time))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->preview_duration))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->poster_time))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->selection_time))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->selection_duration))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->current_time))) {
+    return err;
+  }
+  if ((err = qtff_read_32(fd, &out->next_track_id))) {
+    return err;
+  }
+
+  return QTFFErrorNone;
+}
+
+QTFFError qtff_read_clipping_region_atom(FILE *fd,
+                                         QTFFClippingRegionAtom *out) {
+  QTFFError err;
+  if ((err = qtff_read_atom_header(fd, &out->header))) {
+    return err;
+  }
+  if ((err = qtff_read_16(fd, &out->region_size))) {
+    return err;
+  }
+  if ((err = qtff_read_64(fd, &out->region_boundary_box))) {
+    return err;
+  }
+  fseek(fd, out->header.size - 18, SEEK_CUR);
   return QTFFErrorNone;
 }
 
 QTFFError qtff_read_clipping_atom(FILE *fd, QTFFClippingAtom *out) {
   QTFFError err;
   if ((err = qtff_read_atom_header(fd, &out->header))) {
+    return err;
+  }
+  if ((err = qtff_read_clipping_region_atom(fd, &out->clipping_region))) {
     return err;
   }
   fseek(fd, out->header.size - 8, SEEK_CUR);
@@ -230,11 +352,9 @@ QTFFError qtff_read_movie_atom(FILE *fd, QTFFMovieAtom *out) {
   while (!(err = qtff_read_atom_header(fd, &atom))) {
     fseek(fd, -8, SEEK_CUR);
 
-    printf("parsing %c%c%c%c atom with length %u\n", atom.type[0], atom.type[1],
-           atom.type[2], atom.type[3], atom.size);
-
     switch (QTFF_ATOM_ID(atom.type)) {
-      case QTFF_ATOM_ID("mvhd"):
+      /* case QTFF_ATOM_ID("mvhd"): */
+      case 0x6d766864:
         if (movie.movie_header.header.size) {
           return QTFFErrorTooManyAtoms;
         }
@@ -245,7 +365,8 @@ QTFFError qtff_read_movie_atom(FILE *fd, QTFFMovieAtom *out) {
         movie.movie_header = movie_header;
         break;
 
-      case QTFF_ATOM_ID("clip"):
+      /* case QTFF_ATOM_ID("clip"): */
+      case 0x636c6970:
         if (movie.clipping.header.size) {
           return QTFFErrorTooManyAtoms;
         }
@@ -256,7 +377,8 @@ QTFFError qtff_read_movie_atom(FILE *fd, QTFFMovieAtom *out) {
         movie.clipping = clipping;
         break;
 
-      case QTFF_ATOM_ID("trak"):
+      /* case QTFF_ATOM_ID("trak"): */
+      case 0x7472616b:
         if (movie.track_count >= QTFF_MAX_TRACK_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
@@ -268,7 +390,8 @@ QTFFError qtff_read_movie_atom(FILE *fd, QTFFMovieAtom *out) {
         movie.track_count++;
         break;
 
-      case QTFF_ATOM_ID("udta"):
+      /* case QTFF_ATOM_ID("udta"): */
+      case 0x75647461:
         if (movie.user_data.header.size) {
           return QTFFErrorTooManyAtoms;
         }
@@ -279,7 +402,8 @@ QTFFError qtff_read_movie_atom(FILE *fd, QTFFMovieAtom *out) {
         movie.user_data = user_data;
         break;
 
-      case QTFF_ATOM_ID("ctab"):
+      /* case QTFF_ATOM_ID("ctab"): */
+      case 0x63746162:
         if (movie.color_table.header.size) {
           return QTFFErrorTooManyAtoms;
         }
@@ -314,7 +438,8 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
     fseek(fd, -8, SEEK_CUR);
 
     switch (QTFF_ATOM_ID(atom.type)) {
-      case QTFF_ATOM_ID("ftyp"):
+      /* case QTFF_ATOM_ID("ftyp"): */
+      case 0x66747970:
         if (movie.file_type_compatibility_count >=
             QTFF_MAX_FILE_TYPE_COMPATIBILITY_ATOMS) {
           return QTFFErrorTooManyAtoms;
@@ -330,7 +455,8 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
 
         break;
 
-      case QTFF_ATOM_ID("moov"):
+      /* case QTFF_ATOM_ID("moov"): */
+      case 0x6d6f6f76:
         if (movie.movie_count >= QTFF_MAX_MOVIE_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
@@ -342,7 +468,8 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
         movie.movie_count++;
         break;
 
-      case QTFF_ATOM_ID("mdat"):
+      /* case QTFF_ATOM_ID("mdat"): */
+      case 0x6d646174:
         if (movie.movie_data_count >= QTFF_MAX_MOVIE_DATA_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
@@ -354,7 +481,8 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
         movie.movie_data_count++;
         break;
 
-      case QTFF_ATOM_ID("free"):
+      /* case QTFF_ATOM_ID("free"): */
+      case 0x66726565:
         if (movie.free_count >= QTFF_MAX_FREE_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
@@ -366,7 +494,8 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
         movie.free_count++;
         break;
 
-      case QTFF_ATOM_ID("skip"):
+      /* case QTFF_ATOM_ID("skip"): */
+      case 0x736b6970:
         if (movie.skip_count >= QTFF_MAX_SKIP_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
@@ -378,7 +507,8 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
         movie.skip_count++;
         break;
 
-      case QTFF_ATOM_ID("wide"):
+      /* case QTFF_ATOM_ID("wide"): */
+      case 0x77696465:
         if (movie.wide_count >= QTFF_MAX_WIDE_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }
@@ -390,7 +520,8 @@ QTFFError qtff_read_movie_file(FILE *fd, QTFFMovieFile *out) {
         movie.wide_count++;
         break;
 
-      case QTFF_ATOM_ID("pnot"):
+      /* case QTFF_ATOM_ID("pnot"): */
+      case 0x706e6f74:
         if (movie.preview_count >= QTFF_MAX_WIDE_ATOMS) {
           return QTFFErrorTooManyAtoms;
         }

@@ -9,6 +9,7 @@ gtest_discover_tests(qtff_test)
 
 add_custom_target(
     check
+    ALL
     COMMAND ${CMAKE_CTEST_COMMAND}
     DEPENDS qtff_test
 )
