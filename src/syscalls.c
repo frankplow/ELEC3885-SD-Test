@@ -1,3 +1,9 @@
+///
+/// @file   syscalls.c
+/// @author Frank Plowman <post@frankplowman.com
+/// @brief  Newlib system call implementations
+///
+
 int _close(int file) { return -1; }
 
 int _lseek(int file, int ptr, int dir) { return 0; }

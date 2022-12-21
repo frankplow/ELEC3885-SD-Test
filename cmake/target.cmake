@@ -29,6 +29,7 @@ else()
         SOURCE_DIR ${PROJECT_SOURCE_DIR}
         BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/target
         INSTALL_COMMAND ""
+        BUILD_ALWAYS ON
         CMAKE_ARGS
             ${CMAKE_ARGS}
             -DCMAKE_TOOLCHAIN_FILE:FILEPATH=${toolchain_path}

@@ -1,76 +1,15 @@
-/**
- ******************************************************************************
- * @file    system_stm32f4xx.c
- * @author  MCD Application Team
- * @brief   CMSIS Cortex-M4 Device Peripheral Access Layer System Source File.
- *
- *   This file provides two functions and one global variable to be called from
- *   user application:
- *      - SystemInit(): This function is called at startup just after reset and
- *                      before branch to main program. This call is made inside
- *                      the "startup_stm32f4xx.s" file.
- *
- *      - SystemCoreClock variable: Contains the core clock (HCLK), it can be
- *used by the user application to setup the SysTick timer or configure other
- *parameters.
- *
- *      - SystemCoreClockUpdate(): Updates the variable SystemCoreClock and must
- *                                 be called whenever the core clock is changed
- *                                 during program execution.
- *
- *
- ******************************************************************************
- * @attention
- *
- * Copyright (c) 2017 STMicroelectronics.
- * All rights reserved.
- *
- * This software is licensed under terms that can be found in the LICENSE file
- * in the root directory of this software component.
- * If no LICENSE file comes with this software, it is provided AS-IS.
- *
- ******************************************************************************
- */
+/// @file    system.c
+/// @author  MCD Application Team
+/// @brief   CMSIS Cortex-M4 Device Peripheral Access Layer System Source File.
 
-/** @addtogroup CMSIS
- * @{
- */
+/// @addtogroup Target
+/// @{
+/// @addtogroup Configuration
+///@{
 
-/** @addtogroup stm32f4xx_system
- * @{
- */
+#include <stm32f4xx.h>
 
-/** @addtogroup STM32F4xx_System_Private_Includes
- * @{
- */
-
-#include "stm32f4xx.h"
-
-#if !defined(HSE_VALUE)
-#define HSE_VALUE \
-  ((uint32_t)8000000) /*!< Default value of the External oscillator in Hz */
-#endif                /* HSE_VALUE */
-
-#if !defined(HSI_VALUE)
-#define HSI_VALUE \
-  ((uint32_t)16000000) /*!< Value of the Internal oscillator in Hz*/
-#endif                 /* HSI_VALUE */
-
-/**
- * @}
- */
-
-/** @addtogroup STM32F4xx_System_Private_TypesDefinitions
- * @{
- */
-
-/**
- * @}
- */
-
-/** @addtogroup STM32F4xx_System_Private_Defines
- * @{
- */
+#include "system.h"
 
 /************************* Miscellaneous Configuration ************************/
 /*!< Uncomment the following line if you need to use external SRAM or SDRAM as
@@ -119,21 +58,6 @@
 #endif        /* USER_VECT_TAB_ADDRESS */
 /******************************************************************************/
 
-/**
- * @}
- */
-
-/** @addtogroup STM32F4xx_System_Private_Macros
- * @{
- */
-
-/**
- * @}
- */
-
-/** @addtogroup STM32F4xx_System_Private_Variables
- * @{
- */
 /* This variable is updated in three ways:
     1) by calling CMSIS function SystemCoreClockUpdate()
     2) by calling HAL API function HAL_RCC_GetHCLKFreq()
@@ -146,25 +70,10 @@ uint32_t SystemCoreClock = 16000000;
 const uint8_t AHBPrescTable[16] = {0, 0, 0, 0, 0, 0, 0, 0,
                                    1, 2, 3, 4, 6, 7, 8, 9};
 const uint8_t APBPrescTable[8] = {0, 0, 0, 0, 1, 2, 3, 4};
-/**
- * @}
- */
-
-/** @addtogroup STM32F4xx_System_Private_FunctionPrototypes
- * @{
- */
 
 #if defined(DATA_IN_ExtSRAM) || defined(DATA_IN_ExtSDRAM)
 static void SystemInit_ExtMemCtl(void);
 #endif /* DATA_IN_ExtSRAM || DATA_IN_ExtSDRAM */
-
-/**
- * @}
- */
-
-/** @addtogroup STM32F4xx_System_Private_Functions
- * @{
- */
 
 /**
  * @brief  Setup the microcontroller system
@@ -744,19 +653,11 @@ void SystemInit_ExtMemCtl(void) {
 
 #endif /* DATA_IN_ExtSRAM */
 #endif /* STM32F405xx || STM32F415xx || STM32F407xx || STM32F417xx || \
-          STM32F427xx || STM32F437xx || STM32F429xx || STM32F439xx ||                                        \
+          STM32F427xx || STM32F437xx || STM32F429xx || STM32F439xx || \
           STM32F469xx || STM32F479xx || STM32F412Zx || STM32F412Vx  */
   (void)(tmp);
 }
 #endif /* DATA_IN_ExtSRAM && DATA_IN_ExtSDRAM */
-/**
- * @}
- */
 
-/**
- * @}
- */
-
-/**
- * @}
- */
+/// @} Configuration
+/// @} Target

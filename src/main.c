@@ -1,31 +1,22 @@
-#include "stm32f4xx_hal.h"
-#include "stm32f4xx_nucleo_144.h"
+///
+/// @file   main.c
+/// @author Frank Plowman <post@frankplowman.com>
+/// @brief  Application-specific code and main loop
+///
 
-// global variables
-static GPIO_InitTypeDef gpio_cfg;
+#include <stm32f4xx_hal.h>
+#include <stm32f4xx_nucleo_144.h>
 
 // function prototypes
 static void sysclk_cfg(void);
 static void error_handler(void);
+static void configure_onboard_leds(void);
 
 int main(void) {
-  // initialise systems
+  // initialise
   HAL_Init();
   sysclk_cfg();
-
-  // configure LEDs
-  LED1_GPIO_CLK_ENABLE();
-  LED2_GPIO_CLK_ENABLE();
-  LED3_GPIO_CLK_ENABLE();
-  gpio_cfg.Mode = GPIO_MODE_OUTPUT_PP;
-  gpio_cfg.Pull = GPIO_PULLUP;
-  gpio_cfg.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  gpio_cfg.Pin = LED1_PIN;
-  HAL_GPIO_Init(LED1_GPIO_PORT, &gpio_cfg);
-  gpio_cfg.Pin = LED2_PIN;
-  HAL_GPIO_Init(LED2_GPIO_PORT, &gpio_cfg);
-  gpio_cfg.Pin = LED3_PIN;
-  HAL_GPIO_Init(LED3_GPIO_PORT, &gpio_cfg);
+  configure_onboard_leds();
 
   while (1) {
     HAL_GPIO_TogglePin(LED1_GPIO_PORT, LED1_PIN);
@@ -99,6 +90,25 @@ static void error_handler(void) {
   BSP_LED_Off(LED3);
   while (1) {
   }
+}
+
+static void configure_onboard_leds() {
+  GPIO_InitTypeDef gpio_cfg;
+
+  // configure LEDs
+  configure_onboard_leds();
+  LED1_GPIO_CLK_ENABLE();
+  LED2_GPIO_CLK_ENABLE();
+  LED3_GPIO_CLK_ENABLE();
+  gpio_cfg.Mode = GPIO_MODE_OUTPUT_PP;
+  gpio_cfg.Pull = GPIO_PULLUP;
+  gpio_cfg.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  gpio_cfg.Pin = LED1_PIN;
+  HAL_GPIO_Init(LED1_GPIO_PORT, &gpio_cfg);
+  gpio_cfg.Pin = LED2_PIN;
+  HAL_GPIO_Init(LED2_GPIO_PORT, &gpio_cfg);
+  gpio_cfg.Pin = LED3_PIN;
+  HAL_GPIO_Init(LED3_GPIO_PORT, &gpio_cfg);
 }
 
 #ifdef USE_FULL_ASSERT
