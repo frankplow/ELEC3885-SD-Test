@@ -18,10 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "fatfs.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,6 +32,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define FATFS_BUFFER_SIZE 64
+#define FATFS_DUMMY_DATA_SIZE 1024
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -42,7 +45,9 @@
 SD_HandleTypeDef hsd;
 
 /* USER CODE BEGIN PV */
-
+static FRESULT fatfs_err;
+static const unsigned char fatfs_dummy_data[FATFS_DUMMY_DATA_SIZE] = {0};
+unsigned int fatfs_written_bytes;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -50,7 +55,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SDIO_SD_Init(void);
 /* USER CODE BEGIN PFP */
-
+extern void initialise_monitor_handles(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -65,7 +70,8 @@ static void MX_SDIO_SD_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+  initialise_monitor_handles();
+  printf("main() entered\n");
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -87,14 +93,52 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_SDIO_SD_Init();
+  MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
+  // Mount SD card drive
+  if ((fatfs_err = f_mount(&SDFatFS, SDPath, 1))) {
+    printf("failed to mount card, code: %i.\n", fatfs_err);
+    if (fatfs_err != FR_NOT_READY) {
+      printf("exiting.\n");
+      exit(fatfs_err);
+    }
+    printf("continuing.\n");
+  }
 
+  // Open file
+  if ((fatfs_err = f_open(&SDFile, "test.txt", FA_WRITE | FA_CREATE_ALWAYS))) {
+    printf("failed to open file, code: %i.\n", fatfs_err);
+    printf("exiting.\n");
+    exit(fatfs_err);
+  }
+
+  // Write to file
+  if ((fatfs_err = f_write(&SDFile,
+                           fatfs_dummy_data,
+                           FATFS_DUMMY_DATA_SIZE,
+                           &fatfs_written_bytes))) {
+    printf("failed to write file, code: %i\n", fatfs_err);
+    printf("exiting.\n");
+    exit(fatfs_err);
+  }
+  if (fatfs_written_bytes != FATFS_DUMMY_DATA_SIZE) {
+    printf("wrote %i bytes, less than the expected %i.\n",
+           fatfs_written_bytes, FATFS_DUMMY_DATA_SIZE);
+  }
+
+  // Close file
+  if ((fatfs_err = f_close(&SDFile))) {
+    printf("failed to close file, code: %i.\n", fatfs_err);
+    printf("exiting.\n");
+    exit(fatfs_err);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    // Open file
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -159,10 +203,6 @@ static void MX_SDIO_SD_Init(void)
 {
 
   /* USER CODE BEGIN SDIO_Init 0 */
-  // Return early if SD card is not inserted
-  if (!HAL_GPIO_ReadPin(SD_CD_GPIO_Port, SD_CD_Pin)) {
-    return;
-  }
   /* USER CODE END SDIO_Init 0 */
 
   /* USER CODE BEGIN SDIO_Init 1 */
@@ -174,15 +214,7 @@ static void MX_SDIO_SD_Init(void)
   hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
   hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd.Init.ClockDiv = 0;
-  if (HAL_SD_Init(&hsd) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  hsd.Init.ClockDiv = 118;
   /* USER CODE BEGIN SDIO_Init 2 */
 
   /* USER CODE END SDIO_Init 2 */
